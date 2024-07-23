@@ -22,12 +22,8 @@ func main() {
 	log.Fatal(srv.ListenAndServe())
 }
 
-func readiness(rw http.ResponseWriter, r *http.Request){
+func readiness(rw http.ResponseWriter, r *http.Request) {
 	rw.WriteHeader(http.StatusOK)
 	rw.Header().Add("Content-Type", "text/plain; charset=utf-8")
-	responseText := "OK"
-	_, err := rw.Write([]byte(responseText))
-	if err != nil {
-		log.Fatalf("Server can't set response body!")
-	}
+	rw.Write([]byte(http.StatusText(http.StatusOK)))
 }
