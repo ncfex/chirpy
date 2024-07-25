@@ -18,3 +18,10 @@ func (api *apiConfig) getMetrics(rw http.ResponseWriter, r *http.Request) {
 
     </html>`, api.fileserverHits)))
 }
+
+func (api *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		api.fileserverHits++
+		next.ServeHTTP(rw, r)
+	})
+}

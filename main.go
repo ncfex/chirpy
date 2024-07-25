@@ -11,16 +11,21 @@ type apiConfig struct {
 }
 
 func main() {
-	apiCfg := apiConfig{}
-
 	const filepathRoot = "."
 	const port = "8080"
 
+	apiCfg := apiConfig{
+		fileserverHits: 0,
+	}
+
 	mux := http.NewServeMux()
-	mux.Handle("/app/*", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))))
+	fsHandler := apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot))))
+	mux.Handle("/app/*", fsHandler)
+
 	mux.HandleFunc("GET /api/healthz", readiness)
 	mux.HandleFunc("GET /api/reset", apiCfg.resetMetrics)
-	mux.HandleFunc("POST /api/validate_chirp", validateChirpHandler)
+	mux.HandleFunc("POST /api/validate_chirp", handlerChirpsValidate)
+
 	mux.HandleFunc("GET /admin/metrics", apiCfg.getMetrics)
 
 	srv := &http.Server{
@@ -32,76 +37,51 @@ func main() {
 	log.Fatal(srv.ListenAndServe())
 }
 
-func (api *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		api.fileserverHits++
-		next.ServeHTTP(rw, r)
-	})
+func respondWithJSON(rw http.ResponseWriter, code int, payload interface{}) {
+	rw.Header().Set("Content-Type", "application/json")
+	dat, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("Error marshalling JSON: %s", err)
+		rw.WriteHeader(500)
+		return
+	}
+	rw.WriteHeader(code)
+	rw.Write(dat)
 }
 
-func validateChirpHandler(rw http.ResponseWriter, r *http.Request) {
-	rw.Header().Set("Content-Type", "application/json")
-
-	type bodyParams struct {
-		Body string `json:"body"`
-	}
-
+func respondWithError(rw http.ResponseWriter, code int, msg string) {
 	type errorResponse struct {
 		Error string `json:"error"`
 	}
+	respondWithJSON(rw, code, errorResponse{
+		Error: msg,
+	})
+}
 
-	type validResponse struct {
+func handlerChirpsValidate(rw http.ResponseWriter, r *http.Request) {
+	type reqBodyParams struct {
+		Body string `json:"body"`
+	}
+
+	type validResponseParams struct {
 		Valid bool `json:"valid"`
 	}
 
-	somethingWentWrongErr := errorResponse{
-		Error: "Something went wrong",
-	}
-	errDat, smthWentWErr := json.Marshal(somethingWentWrongErr)
-	if smthWentWErr != nil {
-		rw.WriteHeader(http.StatusInternalServerError)
-		rw.Write(errDat)
-		return
-	}
-
-	chirpTooLongErr := errorResponse{
-		Error: "Chirp is too long",
-	}
-	tooLongErrDat, toLongErr := json.Marshal(chirpTooLongErr)
-	if toLongErr != nil {
-		rw.WriteHeader(http.StatusInternalServerError)
-		rw.Write(tooLongErrDat)
-		return
-	}
-
-	validResp := validResponse{
-		Valid: true,
-	}
-	validRespDat, validRespErr := json.Marshal(validResp)
-	if validRespErr != nil {
-		rw.WriteHeader(http.StatusInternalServerError)
-		rw.Write(errDat)
-		return
-	}
-
-	// parse r body
 	decoder := json.NewDecoder(r.Body)
-	params := bodyParams{}
-
-	decodeErr := decoder.Decode(&params)
-	if decodeErr != nil {
-		rw.WriteHeader(http.StatusInternalServerError)
-		rw.Write(errDat)
+	params := reqBodyParams{}
+	err := decoder.Decode(&params)
+	if err != nil {
+		respondWithError(rw, http.StatusInternalServerError, "Error while decoding")
 		return
 	}
 
-	if len(params.Body) > 140 {
-		rw.WriteHeader(http.StatusBadRequest)
-		rw.Write(tooLongErrDat)
-		return
-	} else {
-		rw.WriteHeader(http.StatusOK)
-		rw.Write(validRespDat)
+	const maxChirpLength = 140
+	if len(params.Body) > maxChirpLength {
+		respondWithError(rw, http.StatusBadRequest, "Chirp is too long")
 		return
 	}
+
+	respondWithJSON(rw, http.StatusOK, validResponseParams{
+		Valid: true,
+	})
 }
