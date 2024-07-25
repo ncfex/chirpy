@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 )
 
 type apiConfig struct {
@@ -64,7 +65,7 @@ func handlerChirpsValidate(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	type validResponseParams struct {
-		Valid bool `json:"valid"`
+		CleanedBody string `json:"cleaned_body"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -81,7 +82,28 @@ func handlerChirpsValidate(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	bannedWords := []string{
+		"kerfuffle",
+		"sharbert",
+		"fornax",
+	}
+
+	cleaned_s := handleBadWords(bannedWords, params.Body)
 	respondWithJSON(rw, http.StatusOK, validResponseParams{
-		Valid: true,
+		CleanedBody: cleaned_s,
 	})
+}
+
+func handleBadWords(bannedWords []string, s string) string {
+	splitted := strings.Split(s, " ")
+
+	for i := 0; i < len(splitted); i++ {
+		for j := 0; j < len(bannedWords); j++ {
+			if bannedWords[j] == strings.ToLower(splitted[i]) {
+				splitted[i] = "****"
+			}
+		}
+	}
+
+	return strings.Join(splitted, " ")
 }
