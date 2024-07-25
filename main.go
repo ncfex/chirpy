@@ -82,28 +82,23 @@ func handlerChirpsValidate(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bannedWords := []string{
-		"kerfuffle",
-		"sharbert",
-		"fornax",
+	bannedWords := map[string]struct{}{
+		"kerfuffle": {},
+		"sharbert":  {},
+		"fornax":    {},
 	}
-
-	cleaned_s := handleBadWords(bannedWords, params.Body)
+	cleaned_s := handleBannedWords(bannedWords, params.Body)
 	respondWithJSON(rw, http.StatusOK, validResponseParams{
 		CleanedBody: cleaned_s,
 	})
 }
 
-func handleBadWords(bannedWords []string, s string) string {
+func handleBannedWords(bannedWords map[string]struct{}, s string) string {
 	splitted := strings.Split(s, " ")
-
-	for i := 0; i < len(splitted); i++ {
-		for j := 0; j < len(bannedWords); j++ {
-			if bannedWords[j] == strings.ToLower(splitted[i]) {
-				splitted[i] = "****"
-			}
+	for i, word := range splitted {
+		if _, ok := bannedWords[strings.ToLower(word)]; ok {
+			splitted[i] = "****"
 		}
 	}
-
 	return strings.Join(splitted, " ")
 }
