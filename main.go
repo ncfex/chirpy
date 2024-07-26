@@ -5,13 +5,26 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/ncfex/chirpy/database"
 )
 
 type apiConfig struct {
 	fileserverHits int
 }
 
+var db *database.DB
+
+const DATABASE_FILE_NAME = "database/database.json"
+
 func main() {
+	var dbErr error
+	db, dbErr = database.NewDb(DATABASE_FILE_NAME)
+	if dbErr != nil {
+		log.Fatalf("Failed to initialize the database: %v", dbErr)
+		return
+	}
+
 	const filepathRoot = "."
 	const port = "8080"
 
@@ -25,7 +38,8 @@ func main() {
 
 	mux.HandleFunc("GET /api/healthz", readiness)
 	mux.HandleFunc("GET /api/reset", apiCfg.resetMetrics)
-	mux.HandleFunc("POST /api/validate_chirp", handlerChirpsValidate)
+	mux.HandleFunc("POST /api/chirps", handlerNewChirp)
+	mux.HandleFunc("GET /api/chirps", handlerGetChirps)
 
 	mux.HandleFunc("GET /admin/metrics", apiCfg.getMetrics)
 
@@ -36,6 +50,10 @@ func main() {
 
 	log.Printf("Serving files from %s on port: %s\n", filepathRoot, port)
 	log.Fatal(srv.ListenAndServe())
+}
+
+func parseJSONBody[T any](decoder *json.Decoder, v *T) error { // Test
+	return decoder.Decode(&v)
 }
 
 func respondWithJSON(rw http.ResponseWriter, code int, payload interface{}) {
@@ -59,18 +77,14 @@ func respondWithError(rw http.ResponseWriter, code int, msg string) {
 	})
 }
 
-func handlerChirpsValidate(rw http.ResponseWriter, r *http.Request) {
+func handlerNewChirp(rw http.ResponseWriter, r *http.Request) {
 	type reqBodyParams struct {
 		Body string `json:"body"`
 	}
 
-	type validResponseParams struct {
-		CleanedBody string `json:"cleaned_body"`
-	}
-
 	decoder := json.NewDecoder(r.Body)
 	params := reqBodyParams{}
-	err := decoder.Decode(&params)
+	err := parseJSONBody(decoder, &params)
 	if err != nil {
 		respondWithError(rw, http.StatusInternalServerError, "Error while decoding")
 		return
@@ -87,10 +101,27 @@ func handlerChirpsValidate(rw http.ResponseWriter, r *http.Request) {
 		"sharbert":  {},
 		"fornax":    {},
 	}
+
 	cleaned_s := handleBannedWords(bannedWords, params.Body)
-	respondWithJSON(rw, http.StatusOK, validResponseParams{
-		CleanedBody: cleaned_s,
-	})
+	newC, createChipErr := db.CreateChirp(cleaned_s)
+	if createChipErr != nil {
+		log.Printf("Error creating new chip: %s", createChipErr)
+		respondWithError(rw, http.StatusInternalServerError, "Error creating new chip")
+		return
+	}
+
+	respondWithJSON(rw, http.StatusCreated, newC)
+}
+
+func handlerGetChirps(rw http.ResponseWriter, r *http.Request) {
+	chirps, err := db.GetChirps()
+	if err != nil {
+		log.Printf("Error getting chirps: %s", err)
+		respondWithError(rw, http.StatusInternalServerError, "Error getting chirps")
+		return
+	}
+
+	respondWithJSON(rw, http.StatusOK, chirps)
 }
 
 func handleBannedWords(bannedWords map[string]struct{}, s string) string {
