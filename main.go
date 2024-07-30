@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/ncfex/chirpy/database"
@@ -40,6 +41,7 @@ func main() {
 	mux.HandleFunc("GET /api/reset", apiCfg.resetMetrics)
 	mux.HandleFunc("POST /api/chirps", handlerNewChirp)
 	mux.HandleFunc("GET /api/chirps", handlerGetChirps)
+	mux.HandleFunc("GET /api/chirps/{chirpId}", apiCfg.handlerGetChirpById)
 
 	mux.HandleFunc("GET /admin/metrics", apiCfg.getMetrics)
 
@@ -132,4 +134,35 @@ func handleBannedWords(bannedWords map[string]struct{}, s string) string {
 		}
 	}
 	return strings.Join(splitted, " ")
+}
+
+func (api *apiConfig) handlerGetChirpById(rw http.ResponseWriter, r *http.Request) {
+	chirps, err := db.GetChirps()
+	if err != nil {
+		log.Printf("error getting  chirps")
+		respondWithError(rw, 500, "error getting  chirps")
+		return
+	}
+
+	chirpId, toIntErr := strconv.Atoi(r.PathValue("chirpId"))
+	if toIntErr != nil {
+		log.Printf("not valid ID")
+		respondWithError(rw, 500, "not valid ID")
+		return
+	}
+
+	chirpToReturn := database.Chirp{}
+	for _, chirp := range chirps {
+		if chirp.Id == chirpId {
+			chirpToReturn = chirp
+		}
+	}
+
+	if chirpToReturn.Id == 0 {
+		log.Printf("chirp not found")
+		respondWithError(rw, 404, "chirp not found")
+		return
+	}
+
+	respondWithJSON(rw, 200, chirpToReturn)
 }
