@@ -52,31 +52,6 @@ func main() {
 	log.Fatal(srv.ListenAndServe())
 }
 
-func parseJSONBody[T any](decoder *json.Decoder, v *T) error { // Test
-	return decoder.Decode(&v)
-}
-
-func respondWithJSON(rw http.ResponseWriter, code int, payload interface{}) {
-	rw.Header().Set("Content-Type", "application/json")
-	dat, err := json.Marshal(payload)
-	if err != nil {
-		log.Printf("Error marshalling JSON: %s", err)
-		rw.WriteHeader(500)
-		return
-	}
-	rw.WriteHeader(code)
-	rw.Write(dat)
-}
-
-func respondWithError(rw http.ResponseWriter, code int, msg string) {
-	type errorResponse struct {
-		Error string `json:"error"`
-	}
-	respondWithJSON(rw, code, errorResponse{
-		Error: msg,
-	})
-}
-
 func (cfg *apiConfig) handlerNewChirp(rw http.ResponseWriter, r *http.Request) {
 	type reqBodyParams struct {
 		Body string `json:"body"`
@@ -84,7 +59,7 @@ func (cfg *apiConfig) handlerNewChirp(rw http.ResponseWriter, r *http.Request) {
 
 	decoder := json.NewDecoder(r.Body)
 	params := reqBodyParams{}
-	err := parseJSONBody(decoder, &params)
+	err := decoder.Decode(&params)
 	if err != nil {
 		respondWithError(rw, http.StatusInternalServerError, "Error while decoding")
 		return
