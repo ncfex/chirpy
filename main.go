@@ -12,25 +12,23 @@ import (
 
 type apiConfig struct {
 	fileserverHits int
+	DB             *database.DB
 }
-
-var db *database.DB
 
 const DATABASE_FILE_NAME = "database.json"
 
 func main() {
-	var dbErr error
-	db, dbErr = database.NewDb(DATABASE_FILE_NAME)
-	if dbErr != nil {
-		log.Fatalf("Failed to initialize the database: %v", dbErr)
-		return
-	}
-
 	const filepathRoot = "."
 	const port = "8080"
 
+	db, err := database.NewDb(DATABASE_FILE_NAME)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	apiCfg := apiConfig{
 		fileserverHits: 0,
+		DB:             db,
 	}
 
 	mux := http.NewServeMux()
@@ -39,8 +37,8 @@ func main() {
 
 	mux.HandleFunc("GET /api/healthz", readiness)
 	mux.HandleFunc("GET /api/reset", apiCfg.resetMetrics)
-	mux.HandleFunc("POST /api/chirps", handlerNewChirp)
-	mux.HandleFunc("GET /api/chirps", handlerGetChirps)
+	mux.HandleFunc("POST /api/chirps", apiCfg.handlerNewChirp)
+	mux.HandleFunc("GET /api/chirps", apiCfg.handlerGetChirps)
 	mux.HandleFunc("GET /api/chirps/{chirpId}", apiCfg.handlerGetChirpById)
 
 	mux.HandleFunc("GET /admin/metrics", apiCfg.getMetrics)
@@ -79,7 +77,7 @@ func respondWithError(rw http.ResponseWriter, code int, msg string) {
 	})
 }
 
-func handlerNewChirp(rw http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerNewChirp(rw http.ResponseWriter, r *http.Request) {
 	type reqBodyParams struct {
 		Body string `json:"body"`
 	}
@@ -105,7 +103,7 @@ func handlerNewChirp(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	cleaned_s := handleBannedWords(bannedWords, params.Body)
-	newC, createChipErr := db.CreateChirp(cleaned_s)
+	newC, createChipErr := cfg.DB.CreateChirp(cleaned_s)
 	if createChipErr != nil {
 		log.Printf("Error creating new chip: %s", createChipErr)
 		respondWithError(rw, http.StatusInternalServerError, "Error creating new chip")
@@ -115,8 +113,8 @@ func handlerNewChirp(rw http.ResponseWriter, r *http.Request) {
 	respondWithJSON(rw, http.StatusCreated, newC)
 }
 
-func handlerGetChirps(rw http.ResponseWriter, r *http.Request) {
-	chirps, err := db.GetChirps()
+func (cfg *apiConfig) handlerGetChirps(rw http.ResponseWriter, r *http.Request) {
+	chirps, err := cfg.DB.GetChirps()
 	if err != nil {
 		log.Printf("Error getting chirps: %s", err)
 		respondWithError(rw, http.StatusInternalServerError, "Error getting chirps")
@@ -136,8 +134,8 @@ func handleBannedWords(bannedWords map[string]struct{}, s string) string {
 	return strings.Join(splitted, " ")
 }
 
-func (api *apiConfig) handlerGetChirpById(rw http.ResponseWriter, r *http.Request) {
-	chirps, err := db.GetChirps()
+func (cfg *apiConfig) handlerGetChirpById(rw http.ResponseWriter, r *http.Request) {
+	chirps, err := cfg.DB.GetChirps()
 	if err != nil {
 		log.Printf("error getting  chirps")
 		respondWithError(rw, 500, "error getting  chirps")
