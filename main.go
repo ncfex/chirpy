@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 
@@ -15,6 +16,9 @@ type apiConfig struct {
 const DATABASE_FILE_NAME = "database.json"
 
 func main() {
+	dbg := flag.Bool("debug", false, "Enable debug mode")
+	flag.Parse()
+
 	const filepathRoot = "."
 	const port = "8080"
 
@@ -28,6 +32,14 @@ func main() {
 		DB:             db,
 	}
 
+	if *dbg {
+		err = apiCfg.DB.RemoveDBFileForDebug()
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+	}
+
 	mux := http.NewServeMux()
 	fsHandler := apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot))))
 	mux.Handle("/app/*", fsHandler)
@@ -37,6 +49,8 @@ func main() {
 	mux.HandleFunc("POST /api/chirps", apiCfg.handlerNewChirp)
 	mux.HandleFunc("GET /api/chirps", apiCfg.handlerGetChirps)
 	mux.HandleFunc("GET /api/chirps/{chirpId}", apiCfg.handlerGetChirpById)
+
+	mux.HandleFunc("POST /api/users", apiCfg.handlerNewUser)
 
 	mux.HandleFunc("GET /admin/metrics", apiCfg.getMetrics)
 
