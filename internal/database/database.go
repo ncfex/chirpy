@@ -19,8 +19,14 @@ type Chirp struct {
 	Body string `json:"body"`
 }
 
+type User struct {
+	Id    int    `json:"id"`
+	Email string `json:"email"`
+}
+
 type DBStructure struct {
 	Chirps map[int]Chirp `json:"chirps"`
+	Users  map[int]User  `json:"users"`
 }
 
 func NewDb(path string) (*DB, error) {
@@ -93,12 +99,55 @@ func (db *DB) GetChirps() ([]Chirp, error) {
 	return chirps, nil
 }
 
+func (db *DB) CreateUser(body string) (User, error) {
+	db.mux.Lock()
+	defer db.mux.Unlock()
+
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return User{}, err
+	}
+
+	var newID int
+	for id := range dbStructure.Users {
+		if id >= newID {
+			newID = id + 1
+		}
+	}
+	if len(dbStructure.Users) == 0 {
+		newID = 1
+	}
+
+	newUser := User{
+		Id:    newID,
+		Email: body,
+	}
+
+	dbStructure.Users[newID] = newUser
+
+	if err = db.writeDB(dbStructure); err != nil {
+		return User{}, err
+	}
+
+	return newUser, nil
+}
+
+func (db *DB) RemoveDBFileForDebug() error {
+	err := os.Remove(db.path)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (db *DB) ensureDB() error {
 	_, fileReadErr := os.ReadFile(db.path)
 	if fileReadErr != nil {
 		if errors.Is(fileReadErr, os.ErrNotExist) {
 			dbStructure := DBStructure{
 				Chirps: make(map[int]Chirp),
+				Users:  make(map[int]User),
 			}
 			dbData, err := json.Marshal(dbStructure)
 			if err != nil {
