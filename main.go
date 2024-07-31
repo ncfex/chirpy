@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ncfex/chirpy/database"
+	"github.com/ncfex/chirpy/internal/database"
 )
 
 type apiConfig struct {
@@ -16,7 +16,7 @@ type apiConfig struct {
 
 var db *database.DB
 
-const DATABASE_FILE_NAME = "database/database.json"
+const DATABASE_FILE_NAME = "database.json"
 
 func main() {
 	var dbErr error
