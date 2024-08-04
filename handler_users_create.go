@@ -5,13 +5,10 @@ import (
 	"net/http"
 )
 
-type User struct {
-	Email string `json:"email"`
-}
-
 func (cfg *apiConfig) handlerNewUser(rw http.ResponseWriter, r *http.Request) {
 	type reqBodyParams struct {
-		Email string `json:"email"`
+		Password string `json:"password"`
+		Email    string `json:"email"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -22,16 +19,35 @@ func (cfg *apiConfig) handlerNewUser(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if params.Email == "" {
+	if params.Email == "" || params.Password == "" {
 		respondWithError(rw, http.StatusBadRequest, "Invalid email format")
 		return
 	}
 
-	addedUser, err := cfg.DB.CreateUser(params.Email)
+	users, err := cfg.DB.GetUsers()
+	if err != nil {
+		respondWithError(rw, http.StatusBadRequest, "Error while getting users")
+		return
+	}
+
+	for _, user := range users {
+		if user.Email == params.Email {
+			respondWithError(rw, http.StatusBadRequest, "Email already exists")
+			return
+		}
+	}
+
+	addedUser, err := cfg.DB.CreateUser(params.Email, params.Password)
 	if err != nil {
 		respondWithError(rw, http.StatusInternalServerError, "Error creating new user")
 		return
 	}
 
-	respondWithJSON(rw, http.StatusCreated, addedUser)
+	respondWithJSON(rw, http.StatusCreated, struct {
+		Id    int    `json:"id"`
+		Email string `json:"email"`
+	}{
+		Id:    addedUser.Id,
+		Email: addedUser.Email,
+	})
 }
