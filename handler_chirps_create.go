@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"log"
+	"errors"
 	"net/http"
 	"strings"
 )
@@ -25,10 +25,25 @@ func (cfg *apiConfig) handlerNewChirp(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	const maxChirpLength = 140
-	if len(params.Body) > maxChirpLength {
-		respondWithError(rw, http.StatusBadRequest, "Chirp is too long")
+	cleaned, err := validateChirp(params.Body)
+	if err != nil {
+		respondWithError(rw, http.StatusInternalServerError, err.Error())
 		return
+	}
+
+	newC, createChipErr := cfg.DB.CreateChirp(cleaned)
+	if createChipErr != nil {
+		respondWithError(rw, http.StatusInternalServerError, "Error creating new chip")
+		return
+	}
+
+	respondWithJSON(rw, http.StatusCreated, newC)
+}
+
+func validateChirp(body string) (string, error) {
+	const maxChirpLength = 140
+	if len(body) > maxChirpLength {
+		return "", errors.New("Chirp is too long")
 	}
 
 	bannedWords := map[string]struct{}{
@@ -36,16 +51,7 @@ func (cfg *apiConfig) handlerNewChirp(rw http.ResponseWriter, r *http.Request) {
 		"sharbert":  {},
 		"fornax":    {},
 	}
-
-	cleaned_s := handleBannedWords(bannedWords, params.Body)
-	newC, createChipErr := cfg.DB.CreateChirp(cleaned_s)
-	if createChipErr != nil {
-		log.Printf("Error creating new chip: %s", createChipErr)
-		respondWithError(rw, http.StatusInternalServerError, "Error creating new chip")
-		return
-	}
-
-	respondWithJSON(rw, http.StatusCreated, newC)
+	return handleBannedWords(bannedWords, body), nil
 }
 
 func handleBannedWords(bannedWords map[string]struct{}, s string) string {
