@@ -13,45 +13,44 @@ import (
 type apiConfig struct {
 	fileserverHits int
 	DB             *database.DB
-	jwtSecret      []byte
+	jwtSecret      string
 }
 
 const DATABASE_FILE_NAME = "database.json"
 
 func main() {
+	const filepathRoot = "."
+	const port = "8080"
+
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	dbg := flag.Bool("debug", false, "Enable debug mode")
-	flag.Parse()
-
-	const filepathRoot = "."
-	const port = "8080"
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if len(jwtSecret) == 0 {
+		log.Fatal("Secret key error")
+	}
 
 	db, err := database.NewDb(DATABASE_FILE_NAME)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	jwtSecret := []byte(os.Getenv("JWT_SECRET"))
-	if len(jwtSecret) == 0 {
-		log.Fatal("Secret key error")
+	dbg := flag.Bool("debug", false, "Enable debug mode")
+	flag.Parse()
+	if *dbg && dbg != nil {
+		err = db.ResetDB()
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
 	}
 
 	apiCfg := apiConfig{
 		fileserverHits: 0,
 		DB:             db,
 		jwtSecret:      jwtSecret,
-	}
-
-	if *dbg {
-		err = apiCfg.DB.RemoveDBFileForDebug()
-		if err != nil {
-			log.Fatal(err)
-			return
-		}
 	}
 
 	mux := http.NewServeMux()
