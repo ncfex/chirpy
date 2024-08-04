@@ -159,6 +159,39 @@ func (db *DB) CreateUser(email string, password string) (User, error) {
 	return newUser, nil
 }
 
+func (db *DB) UpdateUser(id int, payload struct {
+	Email    string
+	Password string
+}) (User, error) {
+	db.mux.Lock()
+	defer db.mux.Unlock()
+
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return User{}, err
+	}
+
+	user, ok := dbStructure.Users[id]
+	if !ok {
+		return User{}, errors.New("User not found")
+	}
+
+	newHashedPw, err := bcrypt.GenerateFromPassword([]byte(payload.Password), 10)
+	if err != nil {
+		return User{}, err
+	}
+
+	user.Password = newHashedPw
+	user.Email = payload.Email
+	dbStructure.Users[id] = user
+
+	if err = db.writeDB(dbStructure); err != nil {
+		return User{}, err
+	}
+
+	return user, nil
+}
+
 func (db *DB) RemoveDBFileForDebug() error {
 	err := os.Remove(db.path)
 	if err != nil {
