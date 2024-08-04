@@ -7,6 +7,8 @@ import (
 	"os"
 	"sort"
 	"sync"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type DB struct {
@@ -20,8 +22,9 @@ type Chirp struct {
 }
 
 type User struct {
-	Id    int    `json:"id"`
-	Email string `json:"email"`
+	Id       int    `json:"id"`
+	Email    string `json:"email"`
+	Password []byte `json:"password"`
 }
 
 type DBStructure struct {
@@ -99,7 +102,25 @@ func (db *DB) GetChirps() ([]Chirp, error) {
 	return chirps, nil
 }
 
-func (db *DB) CreateUser(body string) (User, error) {
+func (db *DB) GetUsers() ([]User, error) {
+	db.mux.Lock()
+	defer db.mux.Unlock()
+
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		log.Printf("Error loading db: %s", err)
+		return nil, err
+	}
+
+	users := make([]User, 0, len(dbStructure.Users))
+	for _, user := range dbStructure.Users {
+		users = append(users, user)
+	}
+
+	return users, nil
+}
+
+func (db *DB) CreateUser(email string, password string) (User, error) {
 	db.mux.Lock()
 	defer db.mux.Unlock()
 
@@ -118,9 +139,15 @@ func (db *DB) CreateUser(body string) (User, error) {
 		newID = 1
 	}
 
+	hashedPw, err := bcrypt.GenerateFromPassword([]byte(password), 10)
+	if err != nil {
+		return User{}, err
+	}
+
 	newUser := User{
-		Id:    newID,
-		Email: body,
+		Id:       newID,
+		Email:    email,
+		Password: hashedPw,
 	}
 
 	dbStructure.Users[newID] = newUser
