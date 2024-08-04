@@ -2,13 +2,26 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+
+	"github.com/ncfex/chirpy/internal/auth"
+	"github.com/ncfex/chirpy/internal/database"
 )
+
+type User struct {
+	ID       int    `json:"id"`
+	Email    string `json:"email"`
+	Password string `json:"-"`
+}
 
 func (cfg *apiConfig) handlerNewUser(rw http.ResponseWriter, r *http.Request) {
 	type reqBodyParams struct {
 		Password string `json:"password"`
 		Email    string `json:"email"`
+	}
+	type response struct {
+		User
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -24,30 +37,27 @@ func (cfg *apiConfig) handlerNewUser(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	users, err := cfg.DB.GetUsers()
+	hashedPassword, err := auth.HashPassword(params.Password)
 	if err != nil {
-		respondWithError(rw, http.StatusBadRequest, "Error while getting users")
+		respondWithError(rw, http.StatusInternalServerError, "Couldn't hash password")
 		return
 	}
 
-	for _, user := range users {
-		if user.Email == params.Email {
-			respondWithError(rw, http.StatusBadRequest, "Email already exists")
+	addedUser, err := cfg.DB.CreateUser(params.Email, hashedPassword)
+	if err != nil {
+		if errors.Is(err, database.ErrAlreadyExists) {
+			respondWithError(rw, http.StatusConflict, "User already exists")
 			return
 		}
-	}
 
-	addedUser, err := cfg.DB.CreateUser(params.Email, params.Password)
-	if err != nil {
-		respondWithError(rw, http.StatusInternalServerError, "Error creating new user")
+		respondWithError(rw, http.StatusInternalServerError, "Couldn't create user")
 		return
 	}
 
-	respondWithJSON(rw, http.StatusCreated, struct {
-		Id    int    `json:"id"`
-		Email string `json:"email"`
-	}{
-		Id:    addedUser.Id,
-		Email: addedUser.Email,
+	respondWithJSON(rw, http.StatusCreated, response{
+		User: User{
+			ID:    addedUser.Id,
+			Email: addedUser.Email,
+		},
 	})
 }
