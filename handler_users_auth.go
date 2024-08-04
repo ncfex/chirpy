@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -15,8 +16,9 @@ type User struct {
 
 func (cfg *apiConfig) HandlerLogin(rw http.ResponseWriter, r *http.Request) {
 	type reqBodyParams struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Email            string `json:"email"`
+		Password         string `json:"password"`
+		ExpiresInSeconds int    `json:"expires_in_seconds"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -45,12 +47,29 @@ func (cfg *apiConfig) HandlerLogin(rw http.ResponseWriter, r *http.Request) {
 				respondWithError(rw, http.StatusUnauthorized, "Incorrect password")
 				return
 			}
+
+			expInS := 0
+			if params.ExpiresInSeconds != 0 {
+				expInS = params.ExpiresInSeconds
+			}
+
+			duration := time.Second * time.Duration(expInS)
+			token, err := cfg.GenerateJWT("chirpy", UserJWTPayload{
+				Id: user.Id,
+			}, duration)
+			if err != nil {
+				respondWithError(rw, http.StatusInternalServerError, err.Error())
+				return
+			}
+
 			respondWithJSON(rw, http.StatusOK, struct {
 				Id    int    `json:"id"`
 				Email string `json:"email"`
+				Token string `json:"token"`
 			}{
 				Id:    user.Id,
 				Email: user.Email,
+				Token: token,
 			})
 			return
 		}
