@@ -2,8 +2,6 @@ package database
 
 import (
 	"errors"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 var ErrAlreadyExists = errors.New("already exists")
@@ -94,12 +92,7 @@ func (db *DB) UpdateUser(id int, email string, hashedPassword []byte) (User, err
 		return User{}, ErrNotExist
 	}
 
-	newHashedPw, err := bcrypt.GenerateFromPassword(hashedPassword, 10)
-	if err != nil {
-		return User{}, err
-	}
-
-	user.Password = newHashedPw
+	user.Password = hashedPassword
 	user.Email = email
 	dbStructure.Users[id] = user
 
