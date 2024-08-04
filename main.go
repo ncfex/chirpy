@@ -4,18 +4,26 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/ncfex/chirpy/internal/database"
 )
 
 type apiConfig struct {
 	fileserverHits int
 	DB             *database.DB
+	jwtSecret      []byte
 }
 
 const DATABASE_FILE_NAME = "database.json"
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	dbg := flag.Bool("debug", false, "Enable debug mode")
 	flag.Parse()
 
@@ -27,9 +35,15 @@ func main() {
 		log.Fatal(err)
 	}
 
+	jwtSecret := []byte(os.Getenv("JWT_SECRET"))
+	if len(jwtSecret) == 0 {
+		log.Fatal("Secret key error")
+	}
+
 	apiCfg := apiConfig{
 		fileserverHits: 0,
 		DB:             db,
+		jwtSecret:      jwtSecret,
 	}
 
 	if *dbg {
