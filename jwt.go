@@ -17,7 +17,7 @@ func (cfg *apiConfig) GenerateJWT(issuer string, payload UserJWTPayload, expires
 	issuedAt := time.Now().UTC()
 	durationToUse := DEFAULT_EXPIRES_DURATION
 
-	if expiresInSeconds <= DEFAULT_EXPIRES_DURATION {
+	if expiresInSeconds != 0 && expiresInSeconds <= DEFAULT_EXPIRES_DURATION {
 		durationToUse = expiresInSeconds
 	}
 	expiresAt := issuedAt.Add(durationToUse)
