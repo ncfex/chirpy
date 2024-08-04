@@ -4,29 +4,29 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"strings"
 
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/ncfex/chirpy/internal/auth"
 )
 
 func (cfg *apiConfig) HandlerUserUpdate(rw http.ResponseWriter, r *http.Request) {
-	token := strings.Replace(r.Header.Get("Authorization"), "Bearer ", "", 1)
-	if token == "" {
-		respondWithError(rw, http.StatusUnauthorized, "Please provide token")
-		return
-	}
-
-	decoded, err := jwt.ParseWithClaims(token, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(cfg.jwtSecret), nil
-	})
-	if err != nil {
-		respondWithError(rw, http.StatusUnauthorized, err.Error())
-		return
-	}
-
 	type reqBodyParams struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
+	}
+	type response struct {
+		User
+	}
+
+	token, err := auth.GetBearerToken(&r.Header)
+	if err != nil {
+		respondWithError(rw, http.StatusUnauthorized, "Couldn't find JWT")
+		return
+	}
+
+	subject, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(rw, http.StatusUnauthorized, "Couldn't validate JWT")
+		return
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -37,35 +37,28 @@ func (cfg *apiConfig) HandlerUserUpdate(rw http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	userId, err := decoded.Claims.GetSubject()
+	hashedPassword, err := auth.HashPassword(params.Password)
 	if err != nil {
-		respondWithError(rw, http.StatusUnauthorized, err.Error())
+		respondWithError(rw, http.StatusInternalServerError, "Couldn't hash password")
 		return
 	}
 
-	userIdInt, err := strconv.Atoi(userId)
+	userIDInt, err := strconv.Atoi(subject)
 	if err != nil {
-		respondWithError(rw, http.StatusUnauthorized, "error while converting")
+		respondWithError(rw, http.StatusInternalServerError, "Couldn't parse user ID")
 		return
 	}
 
-	updatedUser, err := cfg.DB.UpdateUser(userIdInt, struct {
-		Email    string
-		Password string
-	}{
-		Email:    params.Email,
-		Password: params.Password,
-	})
+	updatedUser, err := cfg.DB.UpdateUser(userIDInt, params.Email, hashedPassword)
 	if err != nil {
 		respondWithError(rw, http.StatusUnauthorized, "Error updating user")
 		return
 	}
 
-	respondWithJSON(rw, http.StatusOK, struct {
-		Id    int    `json:"id"`
-		Email string `json:"email"`
-	}{
-		Id:    updatedUser.Id,
-		Email: updatedUser.Email,
+	respondWithJSON(rw, http.StatusOK, response{
+		User: User{
+			Id:    updatedUser.Id,
+			Email: updatedUser.Email,
+		},
 	})
 }
