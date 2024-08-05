@@ -56,6 +56,10 @@ func ValidateJWT(tokenString string, tokenSecret string) (string, error) {
 		return "", err
 	}
 
+	if claimsStruct.ExpiresAt.Before(time.Now()) {
+		return "", errors.New("expired")
+	}
+
 	userIDString, err := token.Claims.GetSubject()
 	if err != nil {
 		return "", err
