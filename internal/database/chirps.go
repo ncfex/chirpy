@@ -3,11 +3,12 @@ package database
 import "errors"
 
 type Chirp struct {
-	Id   int    `json:"id"`
-	Body string `json:"body"`
+	Id       int    `json:"id"`
+	Body     string `json:"body"`
+	AuthorID int    `json:"author_id"`
 }
 
-func (db *DB) CreateChirp(body string) (Chirp, error) {
+func (db *DB) CreateChirp(body string, authorId int) (Chirp, error) {
 	dbStructure, err := db.loadDB()
 	if err != nil {
 		return Chirp{}, err
@@ -15,8 +16,9 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 
 	id := len(dbStructure.Chirps) + 1
 	newChirp := Chirp{
-		Id:   id,
-		Body: body,
+		Id:       id,
+		Body:     body,
+		AuthorID: authorId,
 	}
 	dbStructure.Chirps[id] = newChirp
 
@@ -26,7 +28,7 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 	return newChirp, nil
 }
 
-func (db *DB) GetChirps() ([]Chirp, error) {
+func (db *DB) GetChirps(authorId int) ([]Chirp, error) {
 	dbStructure, err := db.loadDB()
 	if err != nil {
 		return nil, err
@@ -34,13 +36,15 @@ func (db *DB) GetChirps() ([]Chirp, error) {
 
 	chirps := make([]Chirp, 0, len(dbStructure.Chirps))
 	for _, v := range dbStructure.Chirps {
-		chirps = append(chirps, v)
+		if v.AuthorID == authorId {
+			chirps = append(chirps, v)
+		}
 	}
 
 	return chirps, nil
 }
 
-func (db *DB) GetChirp(id int) (Chirp, error) {
+func (db *DB) GetChirp(id int, authorId int) (Chirp, error) {
 	dbStructure, err := db.loadDB()
 	if err != nil {
 		return Chirp{}, err
@@ -49,6 +53,10 @@ func (db *DB) GetChirp(id int) (Chirp, error) {
 	chirp, ok := dbStructure.Chirps[id]
 	if !ok {
 		return Chirp{}, errors.New("Chirp not found")
+	}
+
+	if chirp.AuthorID != authorId {
+		return Chirp{}, errors.New("no permission")
 	}
 
 	return chirp, nil
