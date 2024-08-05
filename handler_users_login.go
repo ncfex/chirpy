@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -50,15 +48,11 @@ func (cfg *apiConfig) HandlerLogin(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	random := make([]byte, 32)
-	_, err = rand.Read(random)
+	refreshTokenStr, refreshTokenDuration, err := auth.GenerateRefreshToken()
 	if err != nil {
-		respondWithError(rw, http.StatusInternalServerError, "Error generating random")
+		respondWithError(rw, http.StatusInternalServerError, "Couldn't create Refresh Token")
 		return
 	}
-
-	refreshTokenStr := hex.EncodeToString(random)
-	refreshTokenDuration := time.Duration(24*60) * time.Hour
 
 	_, err = cfg.DB.LoginUser(user.Id, refreshTokenStr, refreshTokenDuration)
 	if err != nil {
