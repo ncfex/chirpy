@@ -2,14 +2,21 @@ package database
 
 import (
 	"errors"
+	"time"
 )
 
 var ErrAlreadyExists = errors.New("already exists")
 
+type RefreshToken struct {
+	Token string `json:"refresh_token"`
+	Exp   int64  `json:"exp"`
+}
+
 type User struct {
-	Id       int    `json:"id"`
-	Email    string `json:"email"`
-	Password []byte `json:"password"`
+	Id           int          `json:"id"`
+	Email        string       `json:"email"`
+	Password     []byte       `json:"password"`
+	RefreshToken RefreshToken `json:"refresh_token"`
 }
 
 func (db *DB) CreateUser(email string, hashedPassword []byte) (User, error) {
@@ -94,6 +101,38 @@ func (db *DB) UpdateUser(id int, email string, hashedPassword []byte) (User, err
 
 	user.Password = hashedPassword
 	user.Email = email
+	dbStructure.Users[id] = user
+
+	if err = db.writeDB(dbStructure); err != nil {
+		return User{}, err
+	}
+
+	return user, nil
+}
+
+func (db *DB) LoginUser(id int, refreshTokenStr string, refreshTokenDuration time.Duration) (User, error) {
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return User{}, err
+	}
+
+	user, ok := dbStructure.Users[id]
+	if !ok {
+		return User{}, ErrNotExist
+	}
+
+	var refreshToken RefreshToken
+	if refreshTokenStr != "" || refreshTokenDuration == 0 {
+		refreshToken = RefreshToken{
+			Token: refreshTokenStr,
+			Exp:   time.Now().UTC().Add(refreshTokenDuration).Unix(),
+		}
+	}
+	var zeroToken RefreshToken
+	if zeroToken != refreshToken {
+		user.RefreshToken = refreshToken
+	}
+
 	dbStructure.Users[id] = user
 
 	if err = db.writeDB(dbStructure); err != nil {
