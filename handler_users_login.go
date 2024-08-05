@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -16,7 +18,8 @@ func (cfg *apiConfig) HandlerLogin(rw http.ResponseWriter, r *http.Request) {
 	}
 	type response struct {
 		User
-		Token string `json:"token"`
+		Token        string `json:"token"`
+		RefreshToken string `json:"refresh_token"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -39,18 +42,27 @@ func (cfg *apiConfig) HandlerLogin(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defaultExpiration := 60 * 60 * 24
-	if params.ExpiresInSeconds == 0 {
-		params.ExpiresInSeconds = defaultExpiration
-	} else if params.ExpiresInSeconds > defaultExpiration {
-		params.ExpiresInSeconds = defaultExpiration
-	}
-
 	token, err := auth.GenerateJWT("chirpy", string(cfg.jwtSecret), auth.UserJWTPayload{
 		Id: user.Id,
-	}, time.Duration(params.ExpiresInSeconds)*time.Second)
+	}, time.Duration(60*60)*time.Second)
 	if err != nil {
 		respondWithError(rw, http.StatusInternalServerError, "Couldn't create JWT")
+		return
+	}
+
+	random := make([]byte, 32)
+	_, err = rand.Read(random)
+	if err != nil {
+		respondWithError(rw, http.StatusInternalServerError, "Error generating random")
+		return
+	}
+
+	refreshTokenStr := hex.EncodeToString(random)
+	refreshTokenDuration := time.Duration(24*60) * time.Hour
+
+	_, err = cfg.DB.LoginUser(user.Id, refreshTokenStr, refreshTokenDuration)
+	if err != nil {
+		respondWithError(rw, http.StatusInternalServerError, "Error on login")
 		return
 	}
 
@@ -59,6 +71,7 @@ func (cfg *apiConfig) HandlerLogin(rw http.ResponseWriter, r *http.Request) {
 			Id:    user.Id,
 			Email: user.Email,
 		},
-		Token: token,
+		Token:        token,
+		RefreshToken: refreshTokenStr,
 	})
 }
