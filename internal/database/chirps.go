@@ -28,7 +28,7 @@ func (db *DB) CreateChirp(body string, authorId int) (Chirp, error) {
 	return newChirp, nil
 }
 
-func (db *DB) GetChirps(authorId int) ([]Chirp, error) {
+func (db *DB) GetChirps() ([]Chirp, error) {
 	dbStructure, err := db.loadDB()
 	if err != nil {
 		return nil, err
@@ -36,15 +36,13 @@ func (db *DB) GetChirps(authorId int) ([]Chirp, error) {
 
 	chirps := make([]Chirp, 0, len(dbStructure.Chirps))
 	for _, v := range dbStructure.Chirps {
-		if v.AuthorID == authorId {
-			chirps = append(chirps, v)
-		}
+		chirps = append(chirps, v)
 	}
 
 	return chirps, nil
 }
 
-func (db *DB) GetChirp(id int, authorId int) (Chirp, error) {
+func (db *DB) GetChirp(id int) (Chirp, error) {
 	dbStructure, err := db.loadDB()
 	if err != nil {
 		return Chirp{}, err
@@ -53,10 +51,6 @@ func (db *DB) GetChirp(id int, authorId int) (Chirp, error) {
 	chirp, ok := dbStructure.Chirps[id]
 	if !ok {
 		return Chirp{}, errors.New("Chirp not found")
-	}
-
-	if chirp.AuthorID != authorId {
-		return Chirp{}, errors.New("no permission")
 	}
 
 	return chirp, nil
