@@ -88,6 +88,21 @@ func (db *DB) GetUserByEmail(email string) (User, error) {
 	return User{}, ErrNotExist
 }
 
+func (db *DB) GetUserByRefreshToken(refreshTokenString string) (User, error) {
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return User{}, err
+	}
+
+	for _, user := range dbStructure.Users {
+		if user.RefreshToken.Token == refreshTokenString {
+			return user, nil
+		}
+	}
+
+	return User{}, ErrNotExist
+}
+
 func (db *DB) UpdateUser(id int, email string, hashedPassword []byte) (User, error) {
 	dbStructure, err := db.loadDB()
 	if err != nil {
@@ -133,6 +148,27 @@ func (db *DB) LoginUser(id int, refreshTokenStr string, refreshTokenDuration tim
 		user.RefreshToken = refreshToken
 	}
 
+	dbStructure.Users[id] = user
+
+	if err = db.writeDB(dbStructure); err != nil {
+		return User{}, err
+	}
+
+	return user, nil
+}
+
+func (db *DB) LogoutUser(id int) (User, error) {
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return User{}, err
+	}
+
+	user, ok := dbStructure.Users[id]
+	if !ok {
+		return User{}, ErrNotExist
+	}
+
+	user.RefreshToken = RefreshToken{}
 	dbStructure.Users[id] = user
 
 	if err = db.writeDB(dbStructure); err != nil {
