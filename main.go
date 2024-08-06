@@ -14,6 +14,7 @@ type apiConfig struct {
 	fileserverHits int
 	DB             *database.DB
 	jwtSecret      string
+	polkaAPIKey    string
 }
 
 const DATABASE_FILE_NAME = "database.json"
@@ -28,7 +29,8 @@ func main() {
 	}
 
 	jwtSecret := os.Getenv("JWT_SECRET")
-	if len(jwtSecret) == 0 {
+	polkaAPIKey := os.Getenv("POLKA_API_KEY")
+	if len(jwtSecret) == 0 || len(polkaAPIKey) == 0 {
 		log.Fatal("Secret key error")
 	}
 
@@ -51,6 +53,7 @@ func main() {
 		fileserverHits: 0,
 		DB:             db,
 		jwtSecret:      jwtSecret,
+		polkaAPIKey:    polkaAPIKey,
 	}
 
 	mux := http.NewServeMux()
