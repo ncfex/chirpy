@@ -2,13 +2,24 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
+	"github.com/ncfex/chirpy/internal/auth"
 	"github.com/ncfex/chirpy/internal/database"
 )
 
 func (cfg *apiConfig) HandlerPolkaWebhook(rw http.ResponseWriter, r *http.Request) {
+	polkaAPIKey, err := auth.GetAuthorizationHeaderItem(&r.Header, "ApiKey")
+	if err != nil {
+		respondWithError(rw, http.StatusUnauthorized, "no permission")
+		return
+	}
+
+	if cfg.polkaAPIKey != polkaAPIKey {
+		respondWithError(rw, http.StatusUnauthorized, "no permission")
+		return
+	}
+
 	type parameters struct {
 		Event string `json:"event"`
 		Data  struct {
@@ -18,15 +29,11 @@ func (cfg *apiConfig) HandlerPolkaWebhook(rw http.ResponseWriter, r *http.Reques
 
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
-	err := decoder.Decode(&params)
+	err = decoder.Decode(&params)
 	if err != nil {
 		respondWithError(rw, http.StatusInternalServerError, "Error while decoding")
 		return
 	}
-
-	fmt.Println(params.Event)
-	fmt.Println(params.Data)
-	fmt.Println(params.Data.UserID)
 
 	if params.Event != "user.upgraded" {
 		respondWithJSON(rw, http.StatusNoContent, struct{}{})
