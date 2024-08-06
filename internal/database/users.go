@@ -17,6 +17,7 @@ type User struct {
 	Email        string       `json:"email"`
 	Password     []byte       `json:"password"`
 	RefreshToken RefreshToken `json:"refresh_token"`
+	IsChirpyRed  bool         `json:"is_chirpy_red"`
 }
 
 func (db *DB) CreateUser(email string, hashedPassword []byte) (User, error) {
@@ -176,4 +177,25 @@ func (db *DB) LogoutUser(id int) (User, error) {
 	}
 
 	return user, nil
+}
+
+func (db *DB) UpgradeUserToChirpyRed(userID int) error {
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return err
+	}
+
+	user, ok := dbStructure.Users[userID]
+	if !ok {
+		return ErrNotExist
+	}
+
+	user.IsChirpyRed = true
+	dbStructure.Users[userID] = user
+
+	if err = db.writeDB(dbStructure); err != nil {
+		return err
+	}
+
+	return nil
 }
