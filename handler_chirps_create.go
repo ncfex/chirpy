@@ -10,6 +10,12 @@ import (
 	"github.com/ncfex/chirpy/internal/auth"
 )
 
+type Chirp struct {
+	ID       int    `json:"id"`
+	Body     string `json:"body"`
+	AuthorID int    `json:"author_id"`
+}
+
 func (cfg *apiConfig) handlerNewChirp(rw http.ResponseWriter, r *http.Request) {
 	type reqBodyParams struct {
 		Body string `json:"body"`
