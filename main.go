@@ -70,6 +70,8 @@ func main() {
 	mux.HandleFunc("POST /api/refresh", apiCfg.HandlerRefreshToken)
 	mux.HandleFunc("POST /api/revoke", apiCfg.HandlerRevokeRefresh)
 
+	mux.HandleFunc("POST /api/polka/webhooks", apiCfg.HandlerPolkaWebhook)
+
 	mux.HandleFunc("GET /admin/metrics", apiCfg.getMetrics)
 
 	srv := &http.Server{
