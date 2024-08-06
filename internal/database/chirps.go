@@ -2,6 +2,9 @@ package database
 
 import "errors"
 
+var ErrNoPermission = errors.New("no permission")
+var ErrChirpNotFound = errors.New("chirp not found")
+
 type Chirp struct {
 	Id       int    `json:"id"`
 	Body     string `json:"body"`
@@ -50,8 +53,33 @@ func (db *DB) GetChirp(id int) (Chirp, error) {
 
 	chirp, ok := dbStructure.Chirps[id]
 	if !ok {
-		return Chirp{}, errors.New("Chirp not found")
+		return Chirp{}, ErrChirpNotFound
 	}
 
 	return chirp, nil
+}
+
+func (db *DB) DeleteChirp(chirpID int, requesterID int) error {
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return err
+	}
+
+	chirp, ok := dbStructure.Chirps[chirpID]
+	if !ok {
+		return ErrChirpNotFound
+	}
+
+	if chirp.AuthorID != requesterID {
+		return ErrNoPermission
+	}
+
+	delete(dbStructure.Chirps, chirpID)
+
+	err = db.writeDB(dbStructure)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
