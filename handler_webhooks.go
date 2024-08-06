@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/ncfex/chirpy/internal/auth"
@@ -43,7 +44,7 @@ func (cfg *apiConfig) HandlerPolkaWebhook(rw http.ResponseWriter, r *http.Reques
 	err = cfg.DB.UpgradeUserToChirpyRed(params.Data.UserID)
 	if err != nil {
 		statusCode := http.StatusNoContent
-		if err == database.ErrNotExist {
+		if errors.Is(err, database.ErrNotExist) {
 			statusCode = http.StatusNotFound
 		}
 		respondWithError(rw, statusCode, err.Error())

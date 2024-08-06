@@ -36,8 +36,17 @@ func (cfg *apiConfig) handlerGetChirps(rw http.ResponseWriter, r *http.Request) 
 		})
 	}
 
+	sortType := "asc"
+	sortParam := r.URL.Query().Get("sort")
+	if sortParam != "" {
+		sortType = sortParam
+	}
+
 	sort.Slice(chirps, func(i, j int) bool {
-		return chirps[i].ID < chirps[j].ID
+		if sortType == "asc" {
+			return chirps[i].ID < chirps[j].ID
+		}
+		return chirps[i].ID > chirps[j].ID
 	})
 
 	respondWithJSON(rw, http.StatusOK, chirps)
