@@ -58,7 +58,7 @@ func (cfg *apiConfig) handlerNewChirp(rw http.ResponseWriter, r *http.Request) {
 func validateChirp(body string) (string, error) {
 	const maxChirpLength = 140
 	if len(body) > maxChirpLength {
-		return "", errors.New("Chirp is too long")
+		return "", errors.New("chirp is too long")
 	}
 
 	bannedWords := map[string]struct{}{
