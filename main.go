@@ -1,23 +1,22 @@
 package main
 
 import (
-	"flag"
+	"database/sql"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 	"github.com/ncfex/chirpy/internal/database"
 )
 
 type apiConfig struct {
 	fileserverHits int
-	DB             *database.DB
+	DB             *database.Queries
 	jwtSecret      string
 	polkaAPIKey    string
 }
-
-const DATABASE_FILE_NAME = "database.json"
 
 func main() {
 	const filepathRoot = "."
@@ -34,24 +33,20 @@ func main() {
 		log.Fatal("Secret key error")
 	}
 
-	db, err := database.NewDb(DATABASE_FILE_NAME)
-	if err != nil {
-		log.Fatal(err)
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		log.Fatal("DB_URL must be set")
 	}
 
-	dbg := flag.Bool("debug", false, "Enable debug mode")
-	flag.Parse()
-	if *dbg && dbg != nil {
-		err = db.ResetDB()
-		if err != nil {
-			log.Fatal(err)
-			return
-		}
+	dbConn, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatalf("Error opening database: %s", err)
 	}
+	dbQueries := database.New(dbConn)
 
 	apiCfg := apiConfig{
 		fileserverHits: 0,
-		DB:             db,
+		DB:             dbQueries,
 		jwtSecret:      jwtSecret,
 		polkaAPIKey:    polkaAPIKey,
 	}
