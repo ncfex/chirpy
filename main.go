@@ -55,22 +55,10 @@ func main() {
 	fsHandler := apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot))))
 	mux.Handle("/app/*", fsHandler)
 
-	mux.HandleFunc("GET /api/healthz", readiness)
-	mux.HandleFunc("GET /api/reset", apiCfg.resetMetrics)
-	mux.HandleFunc("POST /api/chirps", apiCfg.handlerNewChirp)
-	mux.HandleFunc("GET /api/chirps", apiCfg.handlerGetChirps)
-	mux.HandleFunc("GET /api/chirps/{chirpId}", apiCfg.handlerGetChirpById)
-	mux.HandleFunc("DELETE /api/chirps/{chirpId}", apiCfg.HandlerDeleteChirpById)
+	mux.HandleFunc("GET /api/healthz", handlerReadiness)
 
-	mux.HandleFunc("POST /api/users", apiCfg.handlerNewUser)
-	mux.HandleFunc("PUT /api/users", apiCfg.HandlerUserUpdate)
-	mux.HandleFunc("POST /api/login", apiCfg.HandlerLogin)
-	mux.HandleFunc("POST /api/refresh", apiCfg.HandlerRefreshToken)
-	mux.HandleFunc("POST /api/revoke", apiCfg.HandlerRevokeRefresh)
-
-	mux.HandleFunc("POST /api/polka/webhooks", apiCfg.HandlerPolkaWebhook)
-
-	mux.HandleFunc("GET /admin/metrics", apiCfg.getMetrics)
+	mux.HandleFunc("GET /admin/reset", apiCfg.handlerReset)
+	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 
 	srv := &http.Server{
 		Addr:    ":" + port,

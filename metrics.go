@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func (api *apiConfig) getMetrics(rw http.ResponseWriter, r *http.Request) {
+func (api *apiConfig) handlerMetrics(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Add("Content-Type", "text/html")
 	rw.WriteHeader(http.StatusOK)
 	rw.Write([]byte(fmt.Sprintf(`
