@@ -16,6 +16,7 @@ type apiConfig struct {
 	DB             *database.Queries
 	jwtSecret      string
 	polkaAPIKey    string
+	platform       string
 }
 
 func main() {
@@ -29,13 +30,10 @@ func main() {
 
 	jwtSecret := os.Getenv("JWT_SECRET")
 	polkaAPIKey := os.Getenv("POLKA_API_KEY")
-	if len(jwtSecret) == 0 || len(polkaAPIKey) == 0 {
-		log.Fatal("Secret key error")
-	}
-
 	dbURL := os.Getenv("DB_URL")
-	if dbURL == "" {
-		log.Fatal("DB_URL must be set")
+	platform := os.Getenv("PLATFORM")
+	if len(jwtSecret) == 0 || len(polkaAPIKey) == 0 || len(dbURL) == 0 || len(platform) == 0 {
+		log.Fatal("INVALID env VALUES")
 	}
 
 	dbConn, err := sql.Open("postgres", dbURL)
@@ -49,6 +47,7 @@ func main() {
 		DB:             dbQueries,
 		jwtSecret:      jwtSecret,
 		polkaAPIKey:    polkaAPIKey,
+		platform:       platform,
 	}
 
 	mux := http.NewServeMux()
@@ -56,8 +55,9 @@ func main() {
 	mux.Handle("/app/*", fsHandler)
 
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
+	mux.HandleFunc("POST /api/users", apiCfg.handlerUserCreate)
 
-	mux.HandleFunc("GET /admin/reset", apiCfg.handlerReset)
+	mux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 
 	srv := &http.Server{
