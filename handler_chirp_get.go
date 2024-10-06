@@ -2,6 +2,8 @@ package main
 
 import (
 	"net/http"
+
+	"github.com/google/uuid"
 )
 
 func (cfg *apiConfig) handlerChirpGetAll(rw http.ResponseWriter, req *http.Request) {
@@ -23,4 +25,34 @@ func (cfg *apiConfig) handlerChirpGetAll(rw http.ResponseWriter, req *http.Reque
 	}
 
 	respondWithJSON(rw, http.StatusOK, chirpMap)
+}
+
+func (cfg *apiConfig) handlerChirpGetById(rw http.ResponseWriter, req *http.Request) {
+	chirpID := req.PathValue("id")
+	if chirpID == "" {
+		respondWithError(rw, http.StatusNotFound, "not found")
+		return
+	}
+
+	pchirpID, err := uuid.Parse(chirpID)
+	if err != nil {
+		respondWithError(rw, http.StatusNotFound, "invalid ID")
+		return
+	}
+
+	c, err := cfg.DB.GetChirpById(req.Context(), pchirpID)
+	if err != nil {
+		respondWithError(rw, http.StatusNotFound, err.Error())
+		return
+	}
+
+	mC := Chirp{
+		ID:        c.ID,
+		CreatedAt: c.CreatedAt,
+		UpdatedAt: c.UpdatedAt,
+		Body:      c.Body,
+		UserID:    c.UserID,
+	}
+
+	respondWithJSON(rw, http.StatusOK, mC)
 }
