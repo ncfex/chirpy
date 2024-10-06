@@ -7,3 +7,8 @@ VALUES (
     $1
 )
 RETURNING *;
+
+-- name: GetAllUsers :many
+SELECT *
+FROM users
+ORDER BY id ASC;
